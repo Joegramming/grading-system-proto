@@ -1,5 +1,5 @@
 {
-  "name": "grading-website",
+  "name": "gradebook",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,10 +12,13 @@
     "test:watch": "vitest",
     "tauri": "tauri",
     "app:dev": "tauri dev",
-    "app:build": "tauri build"
+    "app:build": "tauri build",
+    "predeploy": "vite build --mode pages",
+    "deploy": "gh-pages -d dist --dotfiles"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
+    "gh-pages": "^6.3.0",
     "vite": "^7.1.5",
     "vitest": "^4.1.11"
   },

@@ -14,6 +14,12 @@ async function boot() {
   // Any module can call requestRender() after mutating state.
   onRender(renderAll);
 
+  // Shown only in the `npm run deploy` (Pages preview) build.
+  if (import.meta.env.VITE_PREVIEW) {
+    const note = document.getElementById('previewNote');
+    if (note) note.style.display = 'block';
+  }
+
   initNav();
   initSections();
   initStudents();

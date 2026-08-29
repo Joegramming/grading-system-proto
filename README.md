@@ -1,4 +1,4 @@
-# Grading-Website
+# Gradebook
 
 A multi-section gradebook. Each section keeps its own students, weighted grade
 categories, assignments, and scores; the Reports page turns those into weighted
@@ -20,6 +20,19 @@ npm run dev      # http://localhost:5173
 | `npm run test:watch` | Re-run tests on change                     |
 | `npm run app:dev` | Run the desktop app (Tauri) against the dev server |
 | `npm run app:build` | Build the Windows installer (`src-tauri/target/release/bundle/`) |
+| `npm run deploy`  | Build and publish the browser version to the `gh-pages` branch |
+
+## Preview on GitHub Pages
+
+`npm run deploy` builds with `--mode pages` (which shows a "data is saved only
+in this browser" note) and pushes `dist/` to the `gh-pages` branch via the
+`gh-pages` package. The browser version uses the localStorage adapter
+automatically — no server, data lives in each visitor's browser.
+
+One-time repo setup: **Settings → Pages → Source → "Deploy from a branch" →
+`gh-pages` / `/ (root)`**. The site then serves at
+<https://joegramming.github.io/grading-system-proto/> (relative `base` in
+`vite.config.js` makes the repo sub-path work).
 
 ## Layout
 
