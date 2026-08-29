@@ -1,0 +1,17 @@
+[package]
+name = "gradebook"
+version = "0.1.0"
+description = "Multi-section gradebook — desktop"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# `_lib` suffix so the crate name can't collide with the binary on some targets.
+name = "gradebook_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
