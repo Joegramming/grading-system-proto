@@ -1,11 +1,10 @@
-import { getActiveSection, scheduleSave } from './state.js';
+import { state, getActiveSubject, subjectLabel, scheduleSave, TERM_LABELS } from './state.js';
 import { requestRender } from './bus.js';
 import { showToast } from './utils.js';
 import { confirmAction } from './dialog.js';
-import { buildMatrixCsv, buildReportCsv, planImport, applyImport } from './csv.js';
+import { planImport, applyImport } from './csv.js';
 
-function download(filename, text) {
-  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -17,35 +16,51 @@ function download(filename, text) {
 }
 
 function slug(name) {
-  return (name || 'section')
+  return (name || 'subject')
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '')
-    .toLowerCase() || 'section';
+    .toLowerCase() || 'subject';
 }
 
 export function initPortIO() {
-  document.getElementById('exportMatrixBtn').addEventListener('click', () => {
-    const active = getActiveSection();
-    if (!active) return;
-    if (!active.students.length || !active.assignments.length) {
-      showToast('Add students and assignments first');
+  document.getElementById('exportXlsxBtn').addEventListener('click', async () => {
+    const subject = getActiveSubject();
+    if (!subject) return;
+    if (!subject.students.length) {
+      showToast('Add students first', 'error');
       return;
     }
-    const name = `${slug(active.name)}-grades.csv`;
-    download(name, buildMatrixCsv(active));
-    showToast(`Exported ${name}`);
+    showToast('Building the Excel file…');
+    try {
+      const { buildClassRecordBlob } = await import('./xlsx.js');
+      const blob = await buildClassRecordBlob(subject);
+      const name = `${slug(subjectLabel(subject))}-class-record.xlsx`;
+      downloadBlob(name, blob);
+      showToast(`Exported ${name}`);
+    } catch (e) {
+      console.error('Excel export failed', e);
+      showToast('Could not build the Excel file', 'error');
+    }
   });
 
-  document.getElementById('exportReportBtn').addEventListener('click', () => {
-    const active = getActiveSection();
-    if (!active) return;
-    if (!active.students.length) {
-      showToast('Add students first');
+  document.getElementById('exportWordBtn').addEventListener('click', async () => {
+    const subject = getActiveSubject();
+    if (!subject) return;
+    if (!subject.students.length) {
+      showToast('Add students first', 'error');
       return;
     }
-    const name = `${slug(active.name)}-report.csv`;
-    download(name, buildReportCsv(active));
-    showToast(`Exported ${name}`);
+    showToast('Building the Word file…');
+    try {
+      const { buildGradeSheetBlob } = await import('./gradesheet.js');
+      const blob = await buildGradeSheetBlob(subject);
+      const name = `${slug(subjectLabel(subject))}-grade-sheet.docx`;
+      downloadBlob(name, blob);
+      showToast(`Exported ${name}`);
+    } catch (e) {
+      console.error('Word export failed', e);
+      showToast('Could not build the Word file', 'error');
+    }
   });
 
   const fileInput = document.getElementById('importCsvInput');
@@ -56,24 +71,25 @@ export function initPortIO() {
     fileInput.value = ''; // let the same file be re-picked later
     if (!file) return;
 
-    const active = getActiveSection();
-    if (!active) return;
+    const subject = getActiveSubject();
+    if (!subject) return;
+    const termKey = state.activeTerm;
 
     let plan;
     try {
-      plan = planImport(active, await file.text());
+      plan = planImport(subject, termKey, await file.text());
     } catch (e) {
       console.error('CSV import failed', e);
-      showToast('Could not read that CSV');
+      showToast('Could not read that CSV', 'error');
       return;
     }
 
     if (plan.mode === 'empty') {
-      showToast('That file looked empty');
+      showToast('That file looked empty', 'error');
       return;
     }
 
-    const lines = [`Import into "${active.name}":`];
+    const lines = [`Import into ${subjectLabel(subject)} — ${TERM_LABELS[termKey]}:`];
     lines.push(`• ${plan.newStudents.length} new student${plan.newStudents.length === 1 ? '' : 's'}`);
     if (plan.mode === 'matrix') {
       lines.push(`• ${plan.scoreUpdates.length} score${plan.scoreUpdates.length === 1 ? '' : 's'} across ${plan.matchedColumns} assignment${plan.matchedColumns === 1 ? '' : 's'}`);
@@ -90,7 +106,7 @@ export function initPortIO() {
     });
     if (!ok) return;
 
-    const summary = applyImport(active, plan);
+    const summary = applyImport(subject, plan);
     scheduleSave();
     requestRender();
     showToast(`Imported: +${summary.addedStudents} students, ${summary.scoresSet} scores`);

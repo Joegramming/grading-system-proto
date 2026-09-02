@@ -1,10 +1,18 @@
-import { getActiveSection, scheduleSave } from './state.js';
+import { getActiveSubject, scheduleSave } from './state.js';
 import { requestRender } from './bus.js';
 import { uid, escapeHtml } from './utils.js';
 import { confirmAction } from './dialog.js';
 
 let search = '';
 let editingId = null;
+
+const SEX_OPTS = ['', 'M', 'F'];
+
+function sexSelect(value, attr) {
+  return `<select class="edit-input" ${attr} style="width:64px;">` +
+    SEX_OPTS.map(o => `<option value="${o}" ${o === (value || '') ? 'selected' : ''}>${o || '—'}</option>`).join('') +
+    `</select>`;
+}
 
 export function initStudents() {
   document.getElementById('addStudentBtn').addEventListener('click', addStudent);
@@ -35,12 +43,14 @@ export function initStudents() {
 }
 
 function addStudent() {
-  const active = getActiveSection();
+  const active = getActiveSubject();
   const input = document.getElementById('studentNameInput');
+  const sexInput = document.getElementById('studentSexInput');
   const name = input.value.trim();
   if (!name || !active) return;
-  active.students.push({ id: uid(), name });
+  active.students.push({ id: uid(), name, sex: sexInput.value });
   input.value = '';
+  sexInput.value = '';
   scheduleSave('Student added');
   requestRender();
 }
@@ -48,7 +58,7 @@ function addStudent() {
 function startEdit(id) {
   editingId = id;
   requestRender();
-  const field = document.querySelector('#studentList [data-edit-field]');
+  const field = document.querySelector('#studentList [data-edit-field="name"]');
   if (field) { field.focus(); field.select(); }
 }
 
@@ -58,20 +68,24 @@ function cancelEdit() {
 }
 
 function commitEdit() {
-  const active = getActiveSection();
-  const field = document.querySelector('#studentList [data-edit-field]');
-  if (!active || !field) return;
-  const name = field.value.trim();
-  if (!name) { field.focus(); return; }
+  const active = getActiveSubject();
+  const nameField = document.querySelector('#studentList [data-edit-field="name"]');
+  const sexField = document.querySelector('#studentList [data-edit-field="sex"]');
+  if (!active || !nameField) return;
+  const name = nameField.value.trim();
+  if (!name) { nameField.focus(); return; }
   const student = active.students.find(s => s.id === editingId);
-  if (student) student.name = name;
+  if (student) {
+    student.name = name;
+    if (sexField) student.sex = sexField.value;
+  }
   editingId = null;
-  scheduleSave('Name updated');
+  scheduleSave('Student updated');
   requestRender();
 }
 
 async function removeStudent(id) {
-  const active = getActiveSection();
+  const active = getActiveSubject();
   if (!active) return;
   const student = active.students.find(s => s.id === id);
   if (!student) return;
@@ -97,13 +111,15 @@ async function removeStudent(id) {
 }
 
 export function renderStudents() {
-  const active = getActiveSection();
+  const active = getActiveSubject();
   const tbody = document.getElementById('studentList');
   const empty = document.getElementById('studentEmpty');
   tbody.innerHTML = '';
 
   if (!active) {
     empty.style.display = 'block';
+    empty.textContent = 'Add a subject first.';
+    document.getElementById('studentCountTag').textContent = '';
     return;
   }
 
@@ -111,7 +127,8 @@ export function renderStudents() {
   tbody.innerHTML = filtered.map(s => {
     if (s.id === editingId) {
       return `<tr>
-        <td><input class="edit-input" type="text" value="${escapeHtml(s.name)}" data-edit-field></td>
+        <td><input class="edit-input" type="text" value="${escapeHtml(s.name)}" data-edit-field="name"></td>
+        <td>${sexSelect(s.sex, 'data-edit-field="sex"')}</td>
         <td style="text-align:right;white-space:nowrap;">
           <button class="btn-icon save" data-action="save">✓ Save</button>
           <button class="btn-icon" data-action="cancel">Cancel</button>
@@ -120,6 +137,7 @@ export function renderStudents() {
     }
     return `<tr>
       <td>${escapeHtml(s.name)}</td>
+      <td style="color:var(--ink-muted);">${escapeHtml(s.sex || '—')}</td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn-icon edit" data-action="edit" data-id="${s.id}">✎ Edit</button>
         <button class="btn-icon danger" data-action="remove" data-id="${s.id}">✕ Delete</button>

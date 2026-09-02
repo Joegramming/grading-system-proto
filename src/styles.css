@@ -175,6 +175,20 @@ tr.active-row{background:var(--panel-soft);}
 
 .pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;background:var(--panel-soft);color:var(--ink);}
 
+/* subject details form */
+.subject-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.subject-form label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em;}
+.subject-form label input{text-transform:none;letter-spacing:0;font-weight:400;}
+@media (max-width:760px){.subject-form{grid-template-columns:1fr;}}
+
+/* Prelims / Midterms / Finals switch */
+.term-bar{display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.term-bar-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);}
+.term-switch{display:inline-flex;gap:4px;background:var(--panel);border:1px solid var(--sand);border-radius:12px;padding:4px;box-shadow:var(--shadow);}
+.term-btn{border:none;background:transparent;color:var(--ink-muted);font-size:14.5px;font-weight:600;padding:10px 20px;border-radius:9px;}
+.term-btn:hover{color:var(--ink);}
+.term-btn.active{background:var(--ink);color:var(--panel);}
+
 .io-hint{font-size:13px;color:var(--ink-muted);margin:0 0 14px 0;line-height:1.6;}
 .io-hint strong{color:var(--ink);font-weight:600;}
 .io-hint code{font-family:'JetBrains Mono',monospace;background:var(--panel-soft);padding:1px 5px;border-radius:5px;font-size:12px;}
@@ -203,6 +217,7 @@ input.score-input{width:66px;text-align:center;padding:9px 6px;font-size:15px;mi
   padding:14px 20px;border-radius:12px;font-size:15px;font-weight:500;opacity:0;transform:translateY(8px);
   transition:opacity .25s, transform .25s;pointer-events:none;z-index:60;box-shadow:var(--shadow);max-width:340px;}
 .toast.show{opacity:1;transform:translateY(0);}
+.toast.error{color:var(--warn);}
 
 select{background:var(--panel-soft);border:1px solid var(--sand);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:16px;min-height:44px;}
 

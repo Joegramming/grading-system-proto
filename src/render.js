@@ -1,4 +1,7 @@
-import { renderSectionSwitcher, renderSectionList } from './sections.js';
+import {
+  renderSubjectSwitcher, renderSubjectList, renderSubjectDetails
+} from './subjects.js';
+import { renderTermSwitches } from './terms.js';
 import { renderStudents } from './students.js';
 import { renderCategories } from './categories.js';
 import { renderAssignments } from './assignments.js';
@@ -10,8 +13,10 @@ import { renderReports } from './reports.js';
  * know which other views its change affects.
  */
 export function renderAll() {
-  renderSectionSwitcher();
-  renderSectionList();
+  renderSubjectSwitcher();
+  renderSubjectList();
+  renderSubjectDetails();
+  renderTermSwitches();
   renderStudents();
   renderCategories();
   renderAssignments();

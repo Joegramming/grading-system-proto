@@ -9,10 +9,12 @@ export function escapeHtml(str) {
 }
 
 let toastTimer = null;
-export function showToast(msg, ms = 2500) {
+/** tone: 'success' (green, default) or 'error' (red). */
+export function showToast(msg, tone = 'success', ms = 2500) {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
+  t.classList.toggle('error', tone === 'error');
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), ms);

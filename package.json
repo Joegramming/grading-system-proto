@@ -23,6 +23,8 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.11.1"
+    "@tauri-apps/api": "^2.11.1",
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0"
   }
 }

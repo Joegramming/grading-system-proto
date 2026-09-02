@@ -2,7 +2,8 @@ import { loadState } from './state.js';
 import { onRender } from './bus.js';
 import { renderAll } from './render.js';
 import { initNav } from './nav.js';
-import { initSections } from './sections.js';
+import { initSubjects } from './subjects.js';
+import { initTerms } from './terms.js';
 import { initStudents } from './students.js';
 import { initCategories } from './categories.js';
 import { initAssignments } from './assignments.js';
@@ -21,7 +22,8 @@ async function boot() {
   }
 
   initNav();
-  initSections();
+  initSubjects();
+  initTerms();
   initStudents();
   initCategories();
   initAssignments();

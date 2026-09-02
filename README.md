@@ -1,8 +1,9 @@
 # Gradebook
 
-A multi-section gradebook. Each section keeps its own students, weighted grade
-categories, assignments, and scores; the Reports page turns those into weighted
-final grades you can print.
+A multi-subject gradebook. Each subject holds its course details, its students,
+and three terms (Prelims / Midterms / Finals) — each term with its own weighted
+grade categories and assignments. The Reports page turns those into per-term
+grades and an equal-thirds final you can print.
 
 ## Running it
 
@@ -46,15 +47,24 @@ src/
   utils.js            uid, escapeHtml, showToast
   grading.js          pure grade math (no DOM) — the part worth unit testing
   grading.test.js     Vitest unit tests for grading.js
-  sections.js         section switcher, add/rename/delete
+  subjects.js         subject switcher + the 6-field course details form
+  terms.js            the Prelims / Midterms / Finals switch
   students.js         student list + search
-  categories.js       categories, weights, weight bar
-  assignments.js      assignments + the category dropdown
-  grades.js           the score matrix
+  categories.js       per-term categories, weights, weight bar
+  assignments.js      per-term assignments + the category dropdown
+  grades.js           the score matrix (per term)
   reports.js          final grades, letter grades, print
-  csv.js              CSV parse/serialise + import planning (no DOM) — unit tested
+  csv.js              CSV import parsing (no DOM) — unit tested
   csv.test.js         Vitest unit tests for csv.js
-  portio.js           wires csv.js to the Import/Export buttons + file download
+  xlsx.js             class-record .xlsx builder (exceljs, live formulas) — unit tested
+  xlsx.test.js        Vitest unit tests for xlsx.js
+  gradesheet.js       registrar grade-sheet .docx builder (docx lib) — unit tested
+  gradesheet.test.js  Vitest unit tests for gradesheet.js
+  asc-logo.js         base64 letterhead logo for the grade sheet
+  portio.js           wires csv.js / xlsx.js / gradesheet.js to the Import/Export buttons
+  docs/               client reference templates (gitignored — kept locally only):
+                        sample-sheet.xlsx — the .xlsx class-record export follows it
+                        sample-doc.doc    — the .docx grade-sheet export follows it
   api/
     index.js          auto-picks the adapter — the only door to storage
     local.js          localStorage — used in a plain browser
@@ -99,49 +109,81 @@ module knows the difference — the `load()` / `save()` seam is the whole contra
 
 ```js
 {
-  activeSectionId: "ab12cd34",
-  sections: [{
-    id, name,
-    students:    [{ id, name }],
-    categories:  [{ id, name, weight }],           // weight is a percentage
-    assignments: [{ id, name, categoryId, max }],
-    scores:      { "<studentId>_<assignmentId>": { score, excused } }
+  activeSubjectId: "ab12cd34",
+  activeTerm: "prelims",                            // prelims | midterms | finals
+  subjects: [{
+    id,
+    // plain strings; courseYear / instructor / programChair feed the Word grade sheet
+    course: { code, name, semester, schoolYear, schedule, set, courseYear, instructor, programChair },
+    students: [{ id, name, sex }],                                  // sex: '' | 'M' | 'F'
+    terms: {
+      prelims:  { categories: [{ id, name, weight }], assignments: [{ id, name, categoryId, max, date }] },
+      midterms: { /* same shape */ },
+      finals:   { /* same shape */ }
+    },
+    scores: { "<studentId>_<assignmentId>": { score, excused } }   // assignment ids are unique across terms
   }]
 }
 ```
 
 ## Grading rules
 
-- A category's percentage is `sum(earned) / sum(max)` over its graded,
-  non-excused assignments.
-- Categories with nothing graded are skipped, and the remaining weights are
-  re-normalised — so a half-finished term reads as a real percentage instead of
-  being dragged toward zero.
-- Blank (or unparseable) score = not graded yet. "exc." excludes that
-  assignment from the student's average entirely.
+Follows the client's class-record scheme (see `docs/sample-sheet.xlsx`).
+
+- Each term (Prelims / Midterms / Finals) has its own categories, weights, and
+  assignments.
+- **Category %** (transmuted): `Σ(score) * 50 / Σ(max) + 50` over the student's
+  graded, non-excused assignments in that category. 50 is the floor (a straight
+  zero → 50, full marks → 100). Null until something is graded.
+- **Period grade** = `Σ( category% × weight/100 )`. **No re-normalisation** — a
+  category with nothing graded contributes nothing, so the grade climbs as
+  categories fill in. (Set weights to total 100%.) Null until one category is
+  graded.
+- **Final grade** = `(Prelims + Midterms + Finals) / 3`, shown once all three
+  periods have a grade.
+- Blank (or unparseable) score = not graded yet, and is excluded from both
+  `Σ(score)` and `Σ(max)`. "exc." excludes an assignment entirely.
 - Scores above an assignment's max are kept (extra credit) but the box turns
   red so a typo stands out.
-- Letters: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, else F.
+- Letters (Reports page): A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, else F.
+- **Equivalent** (1.00–5.00) and **Remarks** (Passed / Failed / Incomplete) for
+  the registrar grade sheet come from the rounded final grade —
+  `gradeEquivalent()` / `gradeRemarks()` in `grading.js`. ⚠ The equivalent band
+  table there is **provisional** (extrapolated from `docs/sample-doc.doc`);
+  swap in the school's official conversion table before relying on it.
 
 ## Import / export
 
-The Setup page has an **Import & export** card, scoped to the active section.
+The Setup page has an **Import & export** card.
 
-**Import** reads one of two shapes:
+**Import CSV** (`csv.js`) reads one of two shapes into the *active subject +
+current term*:
 
 - *Roster* — a single column of names (a `Student` / `Name` header row is
-  optional). Each name becomes a student.
-- *Grade matrix* — first row is `Student` followed by assignment names; each
-  cell is a score, blank (leave as-is), or `EXC` (excused).
+  optional). Each name becomes a student on the subject.
+- *Grade matrix* — first row is `Student` followed by the current term's
+  assignment names; each cell is a score, blank (leave as-is), or `EXC`.
 
 Students are matched by name, case-insensitively, and created when missing.
-Assignment columns with no name match in the section are reported and skipped —
+Assignment columns with no name match in that term are reported and skipped —
 import never creates categories or assignments. Nothing is written until you
 confirm the summary dialog.
 
-**Export** produces either that same grade matrix (a portable backup you can
-re-import) or a report summary — `Student, Final %, Letter, <category> %…`,
-mirroring the Reports page.
+**Export class record (.xlsx)** — `xlsx.js` via `exceljs`, lazy-loaded. Follows
+`docs/sample-sheet.xlsx`: `A1:A6` course block; period / category /
+assignment-or-date / max+weight header rows; one student per row. Per category:
+`raw… → Total → % → Weighted`, then a period Grade column, then Final Grade +
+Letter. Every computed cell is a **live Excel formula** (the `%` uses
+`SUMPRODUCT` so blank cells stay excluded from the max, matching the app).
+Categories with no assignments are skipped.
+
+**Export grade sheet (.docx)** — `gradesheet.js` via the `docx` lib,
+lazy-loaded. Follows `docs/sample-doc.doc`: letterhead (logo + institution +
+document-control box + "GRADE SHEET") in the page header; course-info block;
+table `Seq. | Names | Sex | Final Grade | Equivalent | Remarks` (students sorted
+by name) then a centred "Nothing Follows" row; the fixed 6-item instructions
+list; a "Prepared by" (instructor) / "Verified by" (program chair) signature
+block. Final Grade / Equivalent / Remarks come from `grading.js`.
 
 ## Desktop app
 
@@ -182,3 +224,11 @@ npx tauri icon app-icon.png
 ```
 
 Replace `app-icon.png` with real artwork and re-run to rebrand.
+<br>
+<br>
+---
+
+<sub>Originally developed by Augnina Reburiano.<br>
+Transferred to Johann Liwag for further development.</sub>
+
+---

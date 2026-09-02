@@ -1,4 +1,4 @@
-import { getActiveSection, scheduleSave } from './state.js';
+import { getActiveSubject, getActiveTermData, scheduleSave } from './state.js';
 import { escapeHtml } from './utils.js';
 
 let search = '';
@@ -36,40 +36,41 @@ export function initGrades() {
   });
 }
 
-function entryFor(section, key) {
-  if (!section.scores[key]) section.scores[key] = { score: null, excused: false };
-  return section.scores[key];
+function entryFor(subject, key) {
+  if (!subject.scores[key]) subject.scores[key] = { score: null, excused: false };
+  return subject.scores[key];
 }
 
 function setScore(key, val) {
-  const active = getActiveSection();
-  if (!active) return;
-  entryFor(active, key).score = parseScoreInput(val);
+  const subject = getActiveSubject();
+  if (!subject) return;
+  entryFor(subject, key).score = parseScoreInput(val);
   scheduleSave('Grades saved');
   // Deliberately no re-render — that would yank focus mid tab-through.
 }
 
 function setExcused(key, checked) {
-  const active = getActiveSection();
-  if (!active) return;
-  entryFor(active, key).excused = checked;
+  const subject = getActiveSubject();
+  if (!subject) return;
+  entryFor(subject, key).excused = checked;
   scheduleSave('Grades saved');
   renderGradesMatrix(); // redraw to enable/disable the score box
 }
 
 export function renderGradesMatrix() {
-  const active = getActiveSection();
+  const subject = getActiveSubject();
+  const term = getActiveTermData();
   const table = document.getElementById('gradesMatrix');
   const empty = document.getElementById('matrixEmpty');
 
-  if (!active || !active.students.length || !active.assignments.length) {
+  if (!subject || !term || !subject.students.length || !term.assignments.length) {
     table.innerHTML = '';
     empty.style.display = 'block';
-    empty.textContent = 'Add students and assignments in Setup first.';
+    empty.textContent = 'Add students, and add assignments for this term in Setup first.';
     return;
   }
 
-  const filtered = active.students.filter(s => s.name.toLowerCase().includes(search));
+  const filtered = subject.students.filter(s => s.name.toLowerCase().includes(search));
   if (!filtered.length) {
     table.innerHTML = '';
     empty.style.display = 'block';
@@ -78,19 +79,19 @@ export function renderGradesMatrix() {
   }
   empty.style.display = 'none';
 
-  const head = `<thead><tr><th>Student</th>${active.assignments.map(a => {
-    const cat = active.categories.find(c => c.id === a.categoryId);
+  const head = `<thead><tr><th>Student</th>${term.assignments.map(a => {
+    const cat = term.categories.find(c => c.id === a.categoryId);
     return `<th>
       <div class="cat-header">${cat ? escapeHtml(cat.name) : ''}</div>
       ${escapeHtml(a.name)}<br>
-      <span style="color:var(--ink-muted);font-weight:400;">/ ${a.max}</span>
+      <span style="color:var(--ink-muted);font-weight:400;">/ ${a.max}${a.date ? ' · ' + escapeHtml(a.date) : ''}</span>
     </th>`;
   }).join('')}</tr></thead>`;
 
   const body = `<tbody>${filtered.map(s => {
-    const cells = active.assignments.map(a => {
+    const cells = term.assignments.map(a => {
       const key = s.id + '_' + a.id;
-      const entry = active.scores[key] || { score: null, excused: false };
+      const entry = subject.scores[key] || { score: null, excused: false };
       const graded = entry.score !== null && entry.score !== undefined;
       const value = graded ? entry.score : '';
       const over = graded && Number(entry.score) > a.max;

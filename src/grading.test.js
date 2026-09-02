@@ -1,158 +1,184 @@
 import { describe, it, expect } from 'vitest';
-import { computeStudentGrade, letterGrade } from './grading.js';
+import {
+  computeCategoryPct, computeTermGrade, computeFinalGrade, letterGrade,
+  gradeEquivalent, gradeRemarks
+} from './grading.js';
 
 /**
- * Builds a section with one student ("s1"). Pass assignments as
- * { id, cat, max } and scores as { "<assignmentId>": number | {score, excused} }.
+ * subject with one student ("s1"). `terms` maps a term key to
+ * { categories, assignments, scores }, where assignments are { id, cat, max }
+ * and scores are { "<assignmentId>": number | {score, excused} }.
  */
-function makeSection({ categories = [], assignments = [], scores = {} }) {
-  const section = {
-    id: 'sec1',
-    name: 'Test',
+function makeSubject(terms) {
+  const subject = {
+    id: 'sub1',
+    course: { code: 'ITP 112', name: '', semester: '', schoolYear: '', schedule: '', set: '' },
     students: [{ id: 's1', name: 'Ada' }],
-    categories,
-    assignments: assignments.map(a => ({
-      id: a.id, name: a.id, categoryId: a.cat, max: a.max
-    })),
+    terms: {
+      prelims: { categories: [], assignments: [] },
+      midterms: { categories: [], assignments: [] },
+      finals: { categories: [], assignments: [] }
+    },
     scores: {}
   };
-  for (const [assignId, v] of Object.entries(scores)) {
-    const entry = typeof v === 'object' ? v : { score: v, excused: false };
-    section.scores['s1_' + assignId] = entry;
+  for (const [termKey, cfg] of Object.entries(terms)) {
+    subject.terms[termKey].categories = cfg.categories || [];
+    subject.terms[termKey].assignments = (cfg.assignments || []).map(a => ({
+      id: a.id, name: a.id, categoryId: a.cat, max: a.max
+    }));
+    for (const [assignId, v] of Object.entries(cfg.scores || {})) {
+      subject.scores['s1_' + assignId] = typeof v === 'object' ? v : { score: v, excused: false };
+    }
   }
-  return section;
+  return subject;
 }
 
-describe('computeStudentGrade', () => {
-  it('returns null final when nothing is graded', () => {
-    const section = makeSection({
+describe('computeCategoryPct (transmuted, 50 floor)', () => {
+  const sub = makeSubject({
+    prelims: {
       categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [{ id: 'a1', cat: 'c1', max: 10 }]
+      assignments: [
+        { id: 'a1', cat: 'c1', max: 10 },
+        { id: 'a2', cat: 'c1', max: 10 },
+        { id: 'a3', cat: 'c1', max: 10 }
+      ],
+      scores: { a1: 10, a2: 0, a3: { score: 5, excused: true } }
+    }
+  });
+
+  it('is earned*50/possible + 50 over graded, non-excused assignments', () => {
+    // earned 10, possible 20 (a3 excused) -> 10*50/20 + 50 = 75
+    expect(computeCategoryPct(sub, 'prelims', 'c1', 's1')).toBe(75);
+  });
+
+  it('is null when nothing in the category is graded', () => {
+    const s = makeSubject({
+      prelims: { categories: [{ id: 'c1', name: 'Q', weight: 100 }], assignments: [{ id: 'a1', cat: 'c1', max: 10 }] }
     });
-    const { final, catBreakdown } = computeStudentGrade(section, 's1');
+    expect(computeCategoryPct(s, 'prelims', 'c1', 's1')).toBeNull();
+  });
+
+  it('floors at 50 for a straight zero', () => {
+    const s = makeSubject({
+      prelims: { categories: [{ id: 'c1', name: 'Q', weight: 100 }], assignments: [{ id: 'a1', cat: 'c1', max: 10 }], scores: { a1: 0 } }
+    });
+    expect(computeCategoryPct(s, 'prelims', 'c1', 's1')).toBe(50);
+  });
+});
+
+describe('computeTermGrade', () => {
+  it('is null when nothing in the period is graded', () => {
+    const sub = makeSubject({
+      prelims: {
+        categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
+        assignments: [{ id: 'a1', cat: 'c1', max: 10 }]
+      }
+    });
+    const { final, catBreakdown } = computeTermGrade(sub, 'prelims', 's1');
     expect(final).toBeNull();
     expect(catBreakdown).toEqual([{ name: 'Quizzes', weight: 100, pct: null }]);
   });
 
-  it('single fully-graded category equals its raw percentage', () => {
-    const section = makeSection({
-      categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [{ id: 'a1', cat: 'c1', max: 10 }],
-      scores: { a1: 8 }
-    });
-    expect(computeStudentGrade(section, 's1').final).toBe(80);
-  });
-
-  it('sums earned and possible across multiple assignments in a category', () => {
-    const section = makeSection({
-      categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 10 },
-        { id: 'a2', cat: 'c1', max: 30 }
-      ],
-      scores: { a1: 10, a2: 15 } // 25 / 40 = 62.5%
-    });
-    expect(computeStudentGrade(section, 's1').final).toBe(62.5);
-  });
-
-  it('weights two graded categories that sum to 100', () => {
-    const section = makeSection({
-      categories: [
-        { id: 'c1', name: 'Quizzes', weight: 40 },
-        { id: 'c2', name: 'Exams', weight: 60 }
-      ],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 100 },
-        { id: 'a2', cat: 'c2', max: 100 }
-      ],
-      scores: { a1: 90, a2: 70 } // 0.4*90 + 0.6*70 = 36 + 42 = 78
-    });
-    expect(computeStudentGrade(section, 's1').final).toBeCloseTo(78, 10);
-  });
-
-  it('re-normalises when categories do not sum to 100', () => {
-    const section = makeSection({
-      categories: [
-        { id: 'c1', name: 'Quizzes', weight: 20 },
-        { id: 'c2', name: 'Exams', weight: 20 }
-      ],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 100 },
-        { id: 'a2', cat: 'c2', max: 100 }
-      ],
-      scores: { a1: 100, a2: 50 } // both weight 20 -> plain average of 100 and 50
-    });
-    expect(computeStudentGrade(section, 's1').final).toBeCloseTo(75, 10);
-  });
-
-  it('re-normalises over only the graded categories in a half-finished term', () => {
-    const section = makeSection({
-      categories: [
-        { id: 'c1', name: 'Quizzes', weight: 30 },
-        { id: 'c2', name: 'Essays', weight: 30 },
-        { id: 'c3', name: 'Exams', weight: 40 } // never graded -> dropped
-      ],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 100 },
-        { id: 'a2', cat: 'c2', max: 100 },
-        { id: 'a3', cat: 'c3', max: 100 }
-      ],
-      scores: { a1: 90, a2: 60 } // (0.3*90 + 0.3*60) / 0.6 = 45 / 0.6 = 75
-    });
-    const { final, catBreakdown } = computeStudentGrade(section, 's1');
-    expect(final).toBeCloseTo(75, 10);
-    expect(catBreakdown.find(c => c.name === 'Exams').pct).toBeNull();
-  });
-
-  it('excludes excused assignments from earned and possible', () => {
-    const section = makeSection({
-      categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 10 },
-        { id: 'a2', cat: 'c1', max: 10 }
-      ],
-      scores: {
-        a1: 8,
-        a2: { score: 2, excused: true } // ignored entirely -> 8/10
+  it('sums category% * weight/100 across graded categories', () => {
+    const sub = makeSubject({
+      prelims: {
+        categories: [
+          { id: 'c1', name: 'Class standing', weight: 40 },
+          { id: 'c2', name: 'Exam', weight: 60 }
+        ],
+        assignments: [
+          { id: 'a1', cat: 'c1', max: 100 },
+          { id: 'a2', cat: 'c2', max: 100 }
+        ],
+        scores: { a1: 90, a2: 70 }
+        // c1 pct = 90*50/100+50 = 95 ; c2 pct = 70*50/100+50 = 85
+        // grade = 95*0.4 + 85*0.6 = 38 + 51 = 89
       }
     });
-    expect(computeStudentGrade(section, 's1').final).toBe(80);
+    expect(computeTermGrade(sub, 'prelims', 's1').final).toBeCloseTo(89, 10);
   });
 
-  it('treats a blank (null) score as not graded', () => {
-    const section = makeSection({
-      categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 10 },
-        { id: 'a2', cat: 'c1', max: 10 }
-      ],
-      scores: { a1: 5, a2: { score: null, excused: false } } // 5/10
+  it('does NOT re-normalise — an ungraded category just contributes nothing', () => {
+    const sub = makeSubject({
+      prelims: {
+        categories: [
+          { id: 'c1', name: 'A', weight: 30 },
+          { id: 'c2', name: 'B', weight: 30 },
+          { id: 'c3', name: 'C', weight: 40 }
+        ],
+        assignments: [
+          { id: 'a1', cat: 'c1', max: 100 },
+          { id: 'a2', cat: 'c2', max: 100 },
+          { id: 'a3', cat: 'c3', max: 100 }
+        ],
+        scores: { a1: 100 } // only c1 -> pct 100 -> grade = 100 * 0.30 = 30
+      }
     });
-    expect(computeStudentGrade(section, 's1').final).toBe(50);
+    expect(computeTermGrade(sub, 'prelims', 's1').final).toBeCloseTo(30, 10);
   });
 
-  it('counts a genuine zero score', () => {
-    const section = makeSection({
-      categories: [{ id: 'c1', name: 'Quizzes', weight: 100 }],
-      assignments: [
-        { id: 'a1', cat: 'c1', max: 10 },
-        { id: 'a2', cat: 'c1', max: 10 }
-      ],
-      scores: { a1: 10, a2: 0 } // 10/20 = 50%, not 100%
+  it('keeps each period independent', () => {
+    const sub = makeSubject({
+      prelims: { categories: [{ id: 'p', name: 'Q', weight: 100 }], assignments: [{ id: 'pa', cat: 'p', max: 10 }], scores: { pa: 10 } },
+      midterms: { categories: [{ id: 'm', name: 'Q', weight: 100 }], assignments: [{ id: 'ma', cat: 'm', max: 10 }], scores: { ma: 0 } }
     });
-    expect(computeStudentGrade(section, 's1').final).toBe(50);
+    expect(computeTermGrade(sub, 'prelims', 's1').final).toBe(100); // 10*50/10+50
+    expect(computeTermGrade(sub, 'midterms', 's1').final).toBe(50); // 0*50/10+50
+  });
+});
+
+describe('computeFinalGrade', () => {
+  // each term gets its own assignment id so scores don't collide
+  const oneCatTerm = (aid, score) => ({
+    categories: [{ id: 'c_' + aid, name: 'Q', weight: 100 }],
+    assignments: [{ id: aid, cat: 'c_' + aid, max: 100 }],
+    scores: score === null ? {} : { [aid]: score }
   });
 
-  it('ignores categories that have no assignments', () => {
-    const section = makeSection({
-      categories: [
-        { id: 'c1', name: 'Quizzes', weight: 50 },
-        { id: 'c2', name: 'Empty', weight: 50 }
-      ],
-      assignments: [{ id: 'a1', cat: 'c1', max: 100 }],
-      scores: { a1: 88 }
+  it('is null until all three periods have a grade', () => {
+    expect(computeFinalGrade(makeSubject({ prelims: oneCatTerm('pa', 80) }), 's1').final).toBeNull();
+    expect(computeFinalGrade(makeSubject({ prelims: oneCatTerm('pa', 80), midterms: oneCatTerm('ma', 80) }), 's1').final).toBeNull();
+  });
+
+  it('is the equal-thirds average once all three are graded', () => {
+    // pcts: 100*50/100+50=100 ; 80->90 ; 60->80
+    const sub = makeSubject({
+      prelims: oneCatTerm('pa', 100),
+      midterms: oneCatTerm('ma', 80),
+      finals: oneCatTerm('fa', 60)
     });
-    expect(computeStudentGrade(section, 's1').final).toBe(88);
+    const { final, terms } = computeFinalGrade(sub, 's1');
+    expect(terms).toEqual([100, 90, 80]);
+    expect(final).toBeCloseTo((100 + 90 + 80) / 3, 10);
+  });
+});
+
+describe('gradeEquivalent (PROVISIONAL table)', () => {
+  it('maps null (no final grade) to null', () => {
+    expect(gradeEquivalent(null)).toBeNull();
+  });
+
+  it.each([
+    [100, 1.00], [99, 1.00], [96, 1.25], [93, 1.50], [90, 1.75],
+    [87, 2.00], [84, 2.25], [81, 2.50], [78, 2.75], [75, 3.00],
+    [74, 5.00], [60, 5.00], [0, 5.00]
+  ])('final %d -> %f', (final, eq) => {
+    expect(gradeEquivalent(final)).toBe(eq);
+  });
+
+  it('rounds the final grade before banding', () => {
+    expect(gradeEquivalent(89.6)).toBe(1.75); // rounds to 90
+    expect(gradeEquivalent(89.4)).toBe(2.00); // rounds to 89
+  });
+});
+
+describe('gradeRemarks', () => {
+  it('is Incomplete without a final grade', () => {
+    expect(gradeRemarks(null)).toBe('Incomplete');
+  });
+  it('uses the rounded grade — Passed at rounded >= 75, Failed below', () => {
+    expect(gradeRemarks(74.5)).toBe('Passed'); // rounds to 75
+    expect(gradeRemarks(74.4)).toBe('Failed'); // rounds to 74
   });
 });
 
@@ -162,14 +188,8 @@ describe('letterGrade', () => {
   });
 
   it.each([
-    [100, 'A'],
-    [90, 'A'],
-    [89.99, 'B'],
-    [80, 'B'],
-    [70, 'C'],
-    [60, 'D'],
-    [59.99, 'F'],
-    [0, 'F']
+    [100, 'A'], [90, 'A'], [89.99, 'B'], [80, 'B'],
+    [70, 'C'], [60, 'D'], [59.99, 'F'], [0, 'F']
   ])('maps %d%% to %s', (pct, letter) => {
     expect(letterGrade(pct).letter).toBe(letter);
   });

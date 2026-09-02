@@ -1,4 +1,4 @@
-import { getActiveSection, scheduleSave } from './state.js';
+import { getActiveSubject, getActiveTermData, scheduleSave } from './state.js';
 import { requestRender } from './bus.js';
 import { uid, escapeHtml } from './utils.js';
 import { confirmAction } from './dialog.js';
@@ -38,14 +38,14 @@ export function initCategories() {
 }
 
 function addCategory() {
-  const active = getActiveSection();
+  const term = getActiveTermData();
   const nameInput = document.getElementById('catNameInput');
   const weightInput = document.getElementById('catWeightInput');
   const name = nameInput.value.trim();
   const weight = parseFloat(weightInput.value);
-  if (!name || isNaN(weight) || weight < 0 || !active) return;
+  if (!name || isNaN(weight) || weight < 0 || !term) return;
 
-  active.categories.push({ id: uid(), name, weight });
+  term.categories.push({ id: uid(), name, weight });
   nameInput.value = '';
   weightInput.value = '';
   scheduleSave('Category added');
@@ -65,15 +65,15 @@ function cancelEdit() {
 }
 
 function commitEdit() {
-  const active = getActiveSection();
+  const term = getActiveTermData();
   const nameField = document.querySelector('#catList [data-edit-field="name"]');
   const weightField = document.querySelector('#catList [data-edit-field="weight"]');
-  if (!active || !nameField || !weightField) return;
+  if (!term || !nameField || !weightField) return;
   const name = nameField.value.trim();
   const weight = parseFloat(weightField.value);
   if (!name) { nameField.focus(); return; }
   if (isNaN(weight) || weight < 0) { weightField.focus(); return; }
-  const cat = active.categories.find(c => c.id === editingId);
+  const cat = term.categories.find(c => c.id === editingId);
   if (cat) { cat.name = name; cat.weight = weight; }
   editingId = null;
   scheduleSave('Category updated');
@@ -81,13 +81,14 @@ function commitEdit() {
 }
 
 async function removeCategory(id) {
-  const active = getActiveSection();
-  if (!active) return;
-  const cat = active.categories.find(c => c.id === id);
+  const term = getActiveTermData();
+  const subject = getActiveSubject();
+  if (!term || !subject) return;
+  const cat = term.categories.find(c => c.id === id);
   if (!cat) return;
 
   // Removing a category takes its assignments — and their scores — with it.
-  const removedAssignIds = active.assignments.filter(a => a.categoryId === id).map(a => a.id);
+  const removedAssignIds = term.assignments.filter(a => a.categoryId === id).map(a => a.id);
 
   const tail = removedAssignIds.length
     ? ` along with ${removedAssignIds.length} assignment${removedAssignIds.length === 1 ? '' : 's'} and their scores`
@@ -101,11 +102,11 @@ async function removeCategory(id) {
   });
   if (!ok) return;
 
-  active.categories = active.categories.filter(c => c.id !== id);
-  active.assignments = active.assignments.filter(a => a.categoryId !== id);
-  Object.keys(active.scores).forEach(k => {
+  term.categories = term.categories.filter(c => c.id !== id);
+  term.assignments = term.assignments.filter(a => a.categoryId !== id);
+  Object.keys(subject.scores).forEach(k => {
     const assignmentId = k.split('_')[1];
-    if (removedAssignIds.includes(assignmentId)) delete active.scores[k];
+    if (removedAssignIds.includes(assignmentId)) delete subject.scores[k];
   });
 
   scheduleSave('Category deleted');
@@ -113,12 +114,21 @@ async function removeCategory(id) {
 }
 
 export function renderCategories() {
-  const active = getActiveSection();
+  const term = getActiveTermData();
   const tbody = document.getElementById('catList');
+  const emptyEl = document.getElementById('catEmpty');
   tbody.innerHTML = '';
-  if (!active) return;
 
-  tbody.innerHTML = active.categories.map((c, i) => {
+  if (!term) {
+    document.getElementById('weightBar').innerHTML = '';
+    document.getElementById('weightLegend').innerHTML = '';
+    document.getElementById('weightWarn').style.display = 'none';
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = 'Add a subject first, then set up categories for each term.';
+    return;
+  }
+
+  tbody.innerHTML = term.categories.map((c, i) => {
     const color = categoryColor(i);
     if (c.id === editingId) {
       return `<tr>
@@ -140,27 +150,28 @@ export function renderCategories() {
     </tr>`;
   }).join('');
 
-  document.getElementById('catEmpty').style.display = active.categories.length ? 'none' : 'block';
+  emptyEl.style.display = term.categories.length ? 'none' : 'block';
+  emptyEl.textContent = 'No categories yet — e.g. Quizzes 20%, Essays 30%, Projects 30%, Exams 20%.';
 
-  renderWeightBar(active);
+  renderWeightBar(term);
 }
 
-function renderWeightBar(active) {
+function renderWeightBar(term) {
   const bar = document.getElementById('weightBar');
   const legend = document.getElementById('weightLegend');
-  const total = active.categories.reduce((sum, c) => sum + Number(c.weight || 0), 0);
+  const total = term.categories.reduce((sum, c) => sum + Number(c.weight || 0), 0);
 
-  bar.innerHTML = active.categories.map((c, i) => {
+  bar.innerHTML = term.categories.map((c, i) => {
     const width = total > 0 ? (c.weight / total * 100) : 0;
     return `<div class="weight-seg" style="width:${width}%;background:${categoryColor(i)};"></div>`;
   }).join('');
 
-  legend.innerHTML = active.categories.map((c, i) =>
+  legend.innerHTML = term.categories.map((c, i) =>
     `<span><span class="dot" style="background:${categoryColor(i)}"></span>${escapeHtml(c.name)} ${c.weight}%</span>`
   ).join('');
 
   const warn = document.getElementById('weightWarn');
-  if (active.categories.length && total !== 100) {
+  if (term.categories.length && total !== 100) {
     warn.style.display = 'block';
     warn.textContent = `Weights total ${total}% — adjust so categories add up to 100%.`;
   } else {
