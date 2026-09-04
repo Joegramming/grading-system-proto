@@ -47,7 +47,7 @@ src/
   utils.js            uid, escapeHtml, showToast
   grading.js          pure grade math (no DOM) — the part worth unit testing
   grading.test.js     Vitest unit tests for grading.js
-  subjects.js         subject switcher + the 6-field course details form
+  subjects.js         subject switcher + course-details fields (Setup card + 2 in the sidebar)
   terms.js            the Prelims / Midterms / Finals switch
   students.js         student list + search
   categories.js       per-term categories, weights, weight bar
