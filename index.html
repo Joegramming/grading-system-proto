@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-CDHjm_fF.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-C023P0UO.css">
+  <script type="module" crossorigin src="./assets/index-CbVKAYkI.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BjYgdslI.css">
 </head>
 <body>
 <div class="shell">
@@ -29,6 +29,15 @@
       </div>
       <button class="add-section-btn" id="addSubjectBtn">＋ Add subject</button>
       <div class="section-meta" id="subjectMeta">0 students</div>
+
+      <div class="subject-side">
+        <label>Semester
+          <input type="text" id="courseSemester" placeholder="e.g. SECOND SEMESTER">
+        </label>
+        <label>School Year
+          <input type="text" id="courseSchoolYear" placeholder="e.g. SY 2025-2026">
+        </label>
+      </div>
     </div>
 
     <div class="nav-label">Pages</div>
@@ -97,25 +106,19 @@
           <label>Course Name
             <input type="text" id="courseName" placeholder="e.g. SYSTEMS ANALYSIS AND DESIGN">
           </label>
-          <label>Semester
-            <input type="text" id="courseSemester" placeholder="e.g. SECOND SEMESTER">
-          </label>
-          <label>School Year
-            <input type="text" id="courseSchoolYear" placeholder="e.g. SY 2025-2026">
-          </label>
           <label>Schedule
             <input type="text" id="courseSchedule" placeholder="e.g. TTH 3:30-5:30">
           </label>
           <label>Set
             <input type="text" id="courseSet" placeholder="e.g. SET A">
           </label>
-          <label>Course &amp; Year
+          <label class="span-2">Course &amp; Year
             <input type="text" id="courseYear" placeholder="e.g. BSIT II-B">
           </label>
-          <label>Instructor <span style="font-weight:400;text-transform:none;">(Prepared by, on the grade sheet)</span>
+          <label class="sig">Instructor <span class="lbl-note">(Prepared by)</span>
             <input type="text" id="courseInstructor" placeholder="e.g. HELEN S. DURIGUEZ">
           </label>
-          <label>Program Chair <span style="font-weight:400;text-transform:none;">(Verified by)</span>
+          <label class="sig">Program Chair <span class="lbl-note">(Verified by)</span>
             <input type="text" id="courseProgramChair" placeholder="e.g. ENGR. ELIAS D. EDAN JR.">
           </label>
         </div>
