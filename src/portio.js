@@ -1,4 +1,4 @@
-import { state, getActiveSubject, subjectLabel, scheduleSave, TERM_LABELS } from './state.js';
+import { state, getActiveSubject, subjectLabel, scheduleSave, TERMS, TERM_LABELS } from './state.js';
 import { requestRender } from './bus.js';
 import { showToast } from './utils.js';
 import { confirmAction } from './dialog.js';
@@ -71,8 +71,16 @@ export function initPortIO() {
     fileInput.value = ''; // let the same file be re-picked later
     if (!file) return;
 
+    if (/\.xlsx$/i.test(file.name)) {
+      await importClassRecord(file);
+      return;
+    }
+
     const subject = getActiveSubject();
-    if (!subject) return;
+    if (!subject) {
+      showToast('Select or create a subject first', 'error');
+      return;
+    }
     const termKey = state.activeTerm;
 
     let plan;
@@ -111,4 +119,42 @@ export function initPortIO() {
     requestRender();
     showToast(`Imported: +${summary.addedStudents} students, ${summary.scoresSet} scores`);
   });
+}
+
+/** Rebuild a whole subject from an exported class-record .xlsx. */
+async function importClassRecord(file) {
+  showToast('Reading the Excel file…');
+  let draft;
+  try {
+    const { parseClassRecord } = await import('./xlsx.js');
+    draft = await parseClassRecord(await file.arrayBuffer());
+  } catch (e) {
+    console.error('Class-record import failed', e);
+    showToast(e.message || 'Could not read that Excel file', 'error');
+    return;
+  }
+
+  const nStu = draft.students.length;
+  const nAsg = TERMS.reduce((n, t) => n + draft.terms[t].assignments.length, 0);
+  const nScore = Object.keys(draft.scores).length;
+
+  const ok = await confirmAction({
+    title: 'Import this class record?',
+    messageLines: [
+      `Creates a new subject: ${subjectLabel(draft)}`,
+      `• ${nStu} student${nStu === 1 ? '' : 's'}`,
+      `• ${nAsg} assignment${nAsg === 1 ? '' : 's'} across the 3 terms`,
+      `• ${nScore} score${nScore === 1 ? '' : 's'}`,
+      'Excused marks are not restored — blank cells import as "not graded yet".'
+    ],
+    confirmLabel: 'Create subject',
+    cancelLabel: 'Cancel'
+  });
+  if (!ok) return;
+
+  state.subjects.push(draft);
+  state.activeSubjectId = draft.id;
+  scheduleSave('Class record imported');
+  requestRender();
+  showToast(`Imported ${subjectLabel(draft)} — ${nStu} students`);
 }

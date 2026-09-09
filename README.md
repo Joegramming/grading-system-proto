@@ -22,6 +22,7 @@ npm run dev      # http://localhost:5173
 | `npm run app:dev` | Run the desktop app (Tauri) against the dev server |
 | `npm run app:build` | Build the Windows installer (`src-tauri/target/release/bundle/`) |
 | `npm run deploy`  | Build and publish the browser version to the `gh-pages` branch |
+| `npm run kill-port` | Kill whatever holds port 5173 (Windows) — for when a stray/crashed dev server blocks a restart. `-- -Port <n>` for another port |
 
 ## Preview on GitHub Pages
 
@@ -43,20 +44,23 @@ src/
   main.js             boot: wire modules, load data, first render
   render.js           renderAll() — redraws every view
   bus.js              requestRender(), so modules don't import render.js
+  nav.js              the Setup / Grades / Reports page switch
+  dialog.js           in-app modal confirm() / prompt() replacements
   state.js            the state object + load/save
   utils.js            uid, escapeHtml, showToast
   grading.js          pure grade math (no DOM) — the part worth unit testing
   grading.test.js     Vitest unit tests for grading.js
   subjects.js         subject switcher + course-details fields (Setup card + 2 in the sidebar)
   terms.js            the Prelims / Midterms / Finals switch
-  students.js         student list + search
+  students.js         student list + search (name + sex)
   categories.js       per-term categories, weights, weight bar
   assignments.js      per-term assignments + the category dropdown
   grades.js           the score matrix (per term)
+  grades.test.js      Vitest unit tests for parseScoreInput
   reports.js          final grades, letter grades, print
   csv.js              CSV import parsing (no DOM) — unit tested
   csv.test.js         Vitest unit tests for csv.js
-  xlsx.js             class-record .xlsx builder (exceljs, live formulas) — unit tested
+  xlsx.js             class-record .xlsx — build (exceljs, live formulas) + parse/re-import — unit tested
   xlsx.test.js        Vitest unit tests for xlsx.js
   gradesheet.js       registrar grade-sheet .docx builder (docx lib) — unit tested
   gradesheet.test.js  Vitest unit tests for gradesheet.js
@@ -70,6 +74,8 @@ src/
     local.js          localStorage — used in a plain browser
     tauri.js          JSON file in the OS app-data folder — used in the desktop app
 src-tauri/            the Tauri (Rust) desktop shell — see "Desktop app" below
+scripts/
+  kill-port.ps1       `npm run kill-port` — free port 5173 (Windows)
 legacy/
   grading-system.html the original single-file version, kept for reference
 ```
@@ -154,9 +160,10 @@ Follows the client's class-record scheme (see `docs/sample-sheet.xlsx`).
 
 ## Import / export
 
-The Setup page has an **Import & export** card.
+The Setup page has an **Import & export** card. The **Import…** button accepts
+`.csv` or `.xlsx` and branches on the extension.
 
-**Import CSV** (`csv.js`) reads one of two shapes into the *active subject +
+**Import a `.csv`** (`csv.js`) — one of two shapes, into the *active subject +
 current term*:
 
 - *Roster* — a single column of names (a `Student` / `Name` header row is
@@ -166,12 +173,21 @@ current term*:
 
 Students are matched by name, case-insensitively, and created when missing.
 Assignment columns with no name match in that term are reported and skipped —
-import never creates categories or assignments. Nothing is written until you
+CSV import never creates categories or assignments. Nothing is written until you
 confirm the summary dialog.
 
-**Export class record (.xlsx)** — `xlsx.js` via `exceljs`, lazy-loaded. Follows
-`docs/sample-sheet.xlsx`: `A1:A6` course block; period / category /
-assignment-or-date / max+weight header rows; one student per row. Per category:
+**Import a `.xlsx` class record** (`xlsx.js` → `parseClassRecord`) — rebuilds a
+**whole new subject** from an exported (and possibly Excel-edited) class record:
+course block, and for each period its categories (name + weight), assignments
+(name + date + max), students, and scores. The formula columns are ignored (the
+app recomputes). The **"excused" flag is not restored** — excused cells export
+blank and re-import as "not graded yet". Always creates a new subject (delete
+the old one yourself if replacing); confirm dialog first.
+
+**Export class record (.xlsx)** — `xlsx.js` via `exceljs`, lazy-loaded.
+`A1:A9` course block (adds course & year / instructor / program chair so the
+file round-trips); then period / category / assignment-name / assignment-date /
+max+weight header rows; one student per row from row 16. Per category:
 `raw… → Total → % → Weighted`, then a period Grade column, then Final Grade +
 Letter. Every computed cell is a **live Excel formula** (the `%` uses
 `SUMPRODUCT` so blank cells stay excluded from the max, matching the app).
@@ -190,8 +206,8 @@ block. Final Grade / Equivalent / Remarks come from `grading.js`.
 The shippable form is a Windows desktop app built with [Tauri](https://tauri.app)
 (`src-tauri/`). Each teacher installs their own copy; the gradebook is one JSON
 file, `gradebook.json`, under `%APPDATA%\com.gradebook.desktop\`. There is no
-server, no account, and no sync — moving data between people or machines is done
-with the CSV export/import above.
+server, no account, and no sync — to move a whole subject between machines,
+export its `.xlsx` class record and re-import it on the other side.
 
 The web build (`npm run dev`, `npm run build`) still works unchanged and uses
 localStorage; `src/api/index.js` picks the Tauri file adapter only when it sees
