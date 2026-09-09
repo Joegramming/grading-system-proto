@@ -179,7 +179,9 @@ td{padding:12px 10px;border-bottom:1px solid var(--sand);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr.active-row{background:var(--panel-soft);}
 .list-empty{color:var(--ink-muted);font-size:15px;padding:16px 4px;font-style:italic;}
-.scroll-list{max-height:360px;overflow-y:auto;}
+/* list cap that adapts to viewport height: a few rows minimum, ~40% of the
+   window as it grows, capped so one list can't dominate a tall screen */
+.scroll-list{max-height:clamp(160px, 40vh, 520px);overflow-y:auto;overflow-x:auto;}
 
 .pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;background:var(--panel-soft);color:var(--ink);}
 

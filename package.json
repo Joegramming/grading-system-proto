@@ -13,6 +13,7 @@
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build",
+    "kill-port": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/kill-port.ps1",
     "predeploy": "vite build --mode pages",
     "deploy": "gh-pages -d dist --dotfiles"
   },
