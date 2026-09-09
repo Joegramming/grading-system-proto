@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-CbVKAYkI.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BjYgdslI.css">
+  <script type="module" crossorigin src="./assets/index-DdRjR5vv.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DWWpBhmv.css">
 </head>
 <body>
 <div class="shell">
@@ -91,7 +91,7 @@
         <div class="row-form">
           <button class="btn" id="addSubjectBtn2">Add subject</button>
         </div>
-        <table><tbody id="subjectList"></tbody></table>
+        <div class="scroll-list"><table><tbody id="subjectList"></tbody></table></div>
       </div>
 
       <div class="card">
@@ -161,7 +161,7 @@
           <input type="number" id="catWeightInput" placeholder="Weight %" style="width:100px;" min="0" max="100">
           <button class="btn" id="addCatBtn">Add category</button>
         </div>
-        <table><tbody id="catList"></tbody></table>
+        <div class="scroll-list"><table><tbody id="catList"></tbody></table></div>
         <div id="catEmpty" class="list-empty">No categories yet — e.g. Quizzes 20%, Essays 30%, Projects 30%, Exams 20%.</div>
         <div class="weight-bar" id="weightBar"></div>
         <div class="weight-legend" id="weightLegend"></div>
@@ -180,7 +180,7 @@
           <input type="text" id="assignDateInput" placeholder="Date (optional)" style="width:130px;">
           <button class="btn" id="addAssignBtn">Add assignment</button>
         </div>
-        <table><tbody id="assignList"></tbody></table>
+        <div class="scroll-list"><table><tbody id="assignList"></tbody></table></div>
         <div id="assignEmpty" class="list-empty">No assignments yet — add categories first, then assignments under them.</div>
       </div>
 
@@ -190,16 +190,17 @@
           Import &amp; export <span class="count">this subject · current term</span>
         </h3>
         <p class="io-hint">
-          <strong>Import</strong> a single column of names to build the roster, or a grade
-          matrix — first row <code>Student</code> then assignment names, each cell a score,
-          blank, or <code>EXC</code>. Unknown students are added; unmatched assignment
-          columns are skipped.
+          <strong>Import</strong> — a <strong>.xlsx</strong> class record (an exported one,
+          edited in Excel) rebuilds a whole new subject: course info, terms, categories,
+          assignments and scores. A <strong>.csv</strong> instead adds a roster (one column
+          of names) or a grade matrix (<code>Student</code> then assignment names; cells are
+          a score, blank, or <code>EXC</code>) into the current subject &amp; term.
         </p>
         <div class="row-form" style="margin-bottom:0;">
-          <button class="btn" id="importCsvBtn">Import CSV…</button>
+          <button class="btn" id="importCsvBtn">Import…</button>
           <button class="btn-ghost" id="exportXlsxBtn">Export class record (Excel)</button>
           <button class="btn-ghost" id="exportWordBtn">Export grade sheet (Word)</button>
-          <input type="file" id="importCsvInput" accept=".csv,text/csv" style="display:none;">
+          <input type="file" id="importCsvInput" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;">
         </div>
       </div>
     </div>
