@@ -2,14 +2,16 @@ import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildClassRecordBlob, parseClassRecord } from './xlsx.js';
 
+const semester = () => ({ label: 'SECOND SEMESTER', schoolYear: 'SY 2025-2026' });
+
 function subject() {
   const cat = (id, name, weight) => ({ id, name, weight });
   const asg = (id, name, categoryId, max, date) => ({ id, name, categoryId, max, date });
   return {
     id: 'sub1',
     course: {
-      code: 'ITP 112', name: 'SYSTEMS ANALYSIS AND DESIGN', semester: 'SECOND SEMESTER',
-      schoolYear: 'SY 2025-2026', schedule: 'TTH 3:30-5:30', set: 'SET A',
+      code: 'ITP 112', name: 'SYSTEMS ANALYSIS AND DESIGN',
+      schedule: 'TTH 3:30-5:30', set: 'SET A',
       courseYear: 'BSIT II-B', instructor: 'HELEN S. DURIGUEZ', programChair: 'ENGR. ELIAS D. EDAN JR.'
     },
     students: [{ id: 's1', name: 'AGUSTIN, EIAN' }, { id: 's2', name: 'ALON, MARLON' }],
@@ -37,10 +39,12 @@ async function readBack(blob) {
 }
 
 describe('buildClassRecordBlob', () => {
-  it('writes the A1:A9 course block and STUDENT header', async () => {
-    const ws = await readBack(await buildClassRecordBlob(subject()));
+  it('writes the A1:A9 course block (A3/A4 from the semester) and STUDENT header', async () => {
+    const ws = await readBack(await buildClassRecordBlob(subject(), semester()));
     expect(ws.getCell('A1').value).toBe('ITP 112');
     expect(ws.getCell('A2').value).toBe('SYSTEMS ANALYSIS AND DESIGN');
+    expect(ws.getCell('A3').value).toBe('SECOND SEMESTER');   // semester.label
+    expect(ws.getCell('A4').value).toBe('SY 2025-2026');       // semester.schoolYear
     expect(ws.getCell('A6').value).toBe('SET A');
     expect(ws.getCell('A7').value).toBe('BSIT II-B');
     expect(ws.getCell('A9').value).toBe('ENGR. ELIAS D. EDAN JR.');
@@ -49,7 +53,7 @@ describe('buildClassRecordBlob', () => {
   });
 
   it('separates assignment name (row 13) and date (row 14); max/weight on row 15', async () => {
-    const ws = await readBack(await buildClassRecordBlob(subject()));
+    const ws = await readBack(await buildClassRecordBlob(subject(), semester()));
     expect(ws.getCell('B13').value).toBe('Attendance');
     expect(ws.getCell('C13').value).toBe('Recitation');
     expect(ws.getCell('B14').value).toBe('1/12');       // date row
@@ -68,11 +72,12 @@ describe('buildClassRecordBlob', () => {
 });
 
 describe('parseClassRecord — round-trip', () => {
-  it('rebuilds course, students, categories, assignments and scores', async () => {
-    const blob = await buildClassRecordBlob(subject());
+  it('rebuilds course, semester hint, students, categories, assignments and scores', async () => {
+    const blob = await buildClassRecordBlob(subject(), semester());
     const draft = await parseClassRecord(await blob.arrayBuffer());
 
     expect(draft.course).toEqual(subject().course);
+    expect(draft.semesterHint).toEqual({ label: 'SECOND SEMESTER', schoolYear: 'SY 2025-2026' });
     expect(draft.students.map(s => s.name)).toEqual(['AGUSTIN, EIAN', 'ALON, MARLON']);
 
     const pcats = draft.terms.prelims.categories;

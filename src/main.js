@@ -2,6 +2,7 @@ import { loadState } from './state.js';
 import { onRender } from './bus.js';
 import { renderAll } from './render.js';
 import { initNav } from './nav.js';
+import { initSemesters } from './semesters.js';
 import { initSubjects } from './subjects.js';
 import { initTerms } from './terms.js';
 import { initStudents } from './students.js';
@@ -22,6 +23,7 @@ async function boot() {
   }
 
   initNav();
+  initSemesters();
   initSubjects();
   initTerms();
   initStudents();

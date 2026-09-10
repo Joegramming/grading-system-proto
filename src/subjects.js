@@ -1,5 +1,6 @@
 import {
-  state, getActiveSubject, createSubject, subjectLabel, scheduleSave
+  state, getActiveSubject, getActiveSemester, createSubject, createSemester,
+  subjectsInSemester, subjectLabel, reconcileState, scheduleSave
 } from './state.js';
 import { requestRender } from './bus.js';
 import { escapeHtml } from './utils.js';
@@ -8,14 +9,20 @@ import { confirmAction } from './dialog.js';
 const FIELDS = [
   ['code', 'courseCode'],
   ['name', 'courseName'],
-  ['semester', 'courseSemester'],
-  ['schoolYear', 'courseSchoolYear'],
   ['schedule', 'courseSchedule'],
   ['set', 'courseSet'],
   ['courseYear', 'courseYear'],
   ['instructor', 'courseInstructor'],
   ['programChair', 'courseProgramChair']
 ];
+
+/** Make sure there is an active semester, creating a blank one if needed. */
+function ensureSemester() {
+  if (getActiveSemester()) return;
+  const sem = createSemester({ schoolYear: '', label: '' });
+  state.semesters.push(sem);
+  state.activeSemesterId = sem.id;
+}
 
 export function initSubjects() {
   document.getElementById('subjectSelect').addEventListener('change', e => {
@@ -36,14 +43,15 @@ export function initSubjects() {
   });
 
   // The details form auto-saves on blur. Typing into it with no subject yet
-  // creates the first one, so it doubles as the "new subject" entry point.
+  // creates the first one (and a semester if needed).
   for (const [key, inputId] of FIELDS) {
     document.getElementById(inputId).addEventListener('change', e => {
       const value = e.target.value.trim();
       let subject = getActiveSubject();
       if (!subject) {
-        if (!value) return; // nothing typed, nothing to create
-        subject = createSubject();
+        if (!value) return;
+        ensureSemester();
+        subject = createSubject({}, state.activeSemesterId);
         state.subjects.push(subject);
         state.activeSubjectId = subject.id;
       }
@@ -55,7 +63,8 @@ export function initSubjects() {
 }
 
 function addSubject() {
-  const s = createSubject();
+  ensureSemester();
+  const s = createSubject({}, state.activeSemesterId);
   state.subjects.push(s);
   state.activeSubjectId = s.id;
   scheduleSave('Subject added');
@@ -83,21 +92,21 @@ async function removeSubject(id) {
   if (!ok) return;
 
   state.subjects = state.subjects.filter(s => s.id !== id);
-  if (state.activeSubjectId === id) {
-    state.activeSubjectId = state.subjects[0] ? state.subjects[0].id : null;
-  }
+  reconcileState();
   scheduleSave('Subject deleted');
   requestRender();
 }
 
 export function renderSubjectSwitcher() {
   const sel = document.getElementById('subjectSelect');
-  if (!state.subjects.length) {
+  const mine = subjectsInSemester(state.activeSemesterId);
+
+  if (!mine.length) {
     sel.innerHTML = '<option value="">No subjects yet</option>';
     sel.disabled = true;
   } else {
     sel.disabled = false;
-    sel.innerHTML = state.subjects
+    sel.innerHTML = mine
       .map(s => `<option value="${s.id}" ${s.id === state.activeSubjectId ? 'selected' : ''}>${escapeHtml(subjectLabel(s))}</option>`)
       .join('');
   }
@@ -106,9 +115,9 @@ export function renderSubjectSwitcher() {
   document.getElementById('subjectMeta').textContent =
     active ? `${active.students.length} student${active.students.length === 1 ? '' : 's'}` : '';
 
-  const totalStudents = state.subjects.reduce((sum, s) => sum + s.students.length, 0);
+  const totalStudents = mine.reduce((sum, s) => sum + s.students.length, 0);
   document.getElementById('totalCountDisplay').textContent =
-    `${state.subjects.length} subject${state.subjects.length === 1 ? '' : 's'} · ${totalStudents} total`;
+    `${mine.length} subject${mine.length === 1 ? '' : 's'} · ${totalStudents} student${totalStudents === 1 ? '' : 's'}`;
   document.getElementById('courseTitleDisplay').textContent = active ? subjectLabel(active) : '—';
   document.getElementById('courseInitial').textContent =
     active ? (active.course.code || active.course.name || 'S').charAt(0).toUpperCase() : 'S';
@@ -128,11 +137,12 @@ export function renderSubjectDetails() {
 
 export function renderSubjectList() {
   const tbody = document.getElementById('subjectList');
-  if (!state.subjects.length) {
-    tbody.innerHTML = '<tr><td class="list-empty">No subjects yet — click "Add subject" above.</td></tr>';
+  const mine = subjectsInSemester(state.activeSemesterId);
+  if (!mine.length) {
+    tbody.innerHTML = '<tr><td class="list-empty">No subjects in this semester yet — click "Add subject".</td></tr>';
     return;
   }
-  tbody.innerHTML = state.subjects.map(s => {
+  tbody.innerHTML = mine.map(s => {
     const isActive = s.id === state.activeSubjectId;
     const dot = isActive ? '<span style="color:var(--good);">●</span>' : '';
     const sub = escapeHtml(s.course.name || '—');

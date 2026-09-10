@@ -118,7 +118,7 @@ function letterhead() {
 
 /* ---------- body pieces ---------- */
 
-function courseInfo(course) {
+function courseInfo(course, semester) {
   const row = (a, b) => new TableRow({
     children: [
       cell(a, { borders: BORDERLESS, width: 5000 }),
@@ -134,7 +134,7 @@ function courseInfo(course) {
     },
     rows: [
       row(`Course Code: ${course.code}`, `Descriptive Title: ${course.name}`),
-      row(`Course and Year: ${course.courseYear}`, `Semester: ${course.semester}    School Year: ${course.schoolYear}`)
+      row(`Course and Year: ${course.courseYear}`, `Semester: ${semester.label || ''}    School Year: ${semester.schoolYear || ''}`)
     ]
   });
 }
@@ -217,7 +217,7 @@ function signatureBlock(course) {
 
 /* ---------- assemble ---------- */
 
-export async function buildGradeSheetBlob(subject) {
+export async function buildGradeSheetBlob(subject, semester = { label: '', schoolYear: '' }) {
   const course = subject.course;
 
   const doc = new Document({
@@ -228,7 +228,7 @@ export async function buildGradeSheetBlob(subject) {
       },
       headers: { default: new Header({ children: [letterhead(), para('')] }) },
       children: [
-        courseInfo(course),
+        courseInfo(course, semester),
         para(''),
         gradeTable(subject),
         para(''),

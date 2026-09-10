@@ -1,9 +1,11 @@
 # Gradebook
 
-A multi-subject gradebook. Each subject holds its course details, its students,
-and three terms (Prelims / Midterms / Finals) — each term with its own weighted
-grade categories and assignments. The Reports page turns those into per-term
-grades and an equal-thirds final you can print.
+A multi-subject gradebook. Subjects live under a **semester** (school year +
+label); the sidebar switches School Year → Semester → Subject, so past semesters
+stay browsable. Each subject holds its course details, its students, and three
+terms (Prelims / Midterms / Finals) — each term with its own weighted grade
+categories and assignments. The Reports page turns those into per-term grades and
+an equal-thirds final you can print.
 
 ## Running it
 
@@ -45,12 +47,14 @@ src/
   render.js           renderAll() — redraws every view
   bus.js              requestRender(), so modules don't import render.js
   nav.js              the Setup / Grades / Reports page switch
-  dialog.js           in-app modal confirm() / prompt() replacements
-  state.js            the state object + load/save
+  dialog.js           in-app modal confirm() / prompt() / formDialog() replacements
+  state.js            the state object + load/save + pre-semester migration
+  state.test.js       Vitest unit tests for the migration / reconcile
   utils.js            uid, escapeHtml, showToast
   grading.js          pure grade math (no DOM) — the part worth unit testing
   grading.test.js     Vitest unit tests for grading.js
-  subjects.js         subject switcher + course-details fields (Setup card + 2 in the sidebar)
+  semesters.js        School Year / Semester switchers + add (with carry-forward) / rename / delete
+  subjects.js         subject switcher (filtered to the active semester) + course-details fields
   terms.js            the Prelims / Midterms / Finals switch
   students.js         student list + search (name + sex)
   categories.js       per-term categories, weights, weight bar
@@ -115,12 +119,15 @@ module knows the difference — the `load()` / `save()` seam is the whole contra
 
 ```js
 {
+  activeSemesterId: "sm01",
   activeSubjectId: "ab12cd34",
   activeTerm: "prelims",                            // prelims | midterms | finals
+  semesters: [{ id, schoolYear, label }],           // e.g. "SY 2025-2026" / "Second Semester"
   subjects: [{
     id,
+    semesterId,                                     // which semester it belongs to
     // plain strings; courseYear / instructor / programChair feed the Word grade sheet
-    course: { code, name, semester, schoolYear, schedule, set, courseYear, instructor, programChair },
+    course: { code, name, schedule, set, courseYear, instructor, programChair },
     students: [{ id, name, sex }],                                  // sex: '' | 'M' | 'F'
     terms: {
       prelims:  { categories: [{ id, name, weight }], assignments: [{ id, name, categoryId, max, date }] },
@@ -131,6 +138,11 @@ module knows the difference — the `load()` / `save()` seam is the whole contra
   }]
 }
 ```
+
+Pre-semester saves migrate on load (`migrateToSemesters` in `state.js`): one
+semester per distinct `(schoolYear, semester)` pair found on the old subjects,
+blanks fold into an "Unsorted" semester, and those two fields move off
+`subject.course`.
 
 ## Grading rules
 
@@ -179,15 +191,17 @@ confirm the summary dialog.
 **Import a `.xlsx` class record** (`xlsx.js` → `parseClassRecord`) — rebuilds a
 **whole new subject** from an exported (and possibly Excel-edited) class record:
 course block, and for each period its categories (name + weight), assignments
-(name + date + max), students, and scores. The formula columns are ignored (the
-app recomputes). The **"excused" flag is not restored** — excused cells export
-blank and re-import as "not graded yet". Always creates a new subject (delete
-the old one yourself if replacing); confirm dialog first.
+(name + date + max), students, and scores. `A3`/`A4` become a `semesterHint`;
+`portio.js` finds or creates the matching semester and files the new subject
+under it. The formula columns are ignored (the app recomputes). The **"excused"
+flag is not restored** — excused cells export blank and re-import as "not graded
+yet". Always creates a new subject (delete the old one yourself if replacing);
+confirm dialog first.
 
 **Export class record (.xlsx)** — `xlsx.js` via `exceljs`, lazy-loaded.
-`A1:A9` course block (adds course & year / instructor / program chair so the
-file round-trips); then period / category / assignment-name / assignment-date /
-max+weight header rows; one student per row from row 16. Per category:
+`A1:A9` course block — `A3`/`A4` are the subject's **semester** label + school
+year, the rest from `subject.course`; then period / category / assignment-name /
+assignment-date / max+weight header rows; one student per row from row 16. Per category:
 `raw… → Total → % → Weighted`, then a period Grade column, then Final Grade +
 Letter. Every computed cell is a **live Excel formula** (the `%` uses
 `SUMPRODUCT` so blank cells stay excluded from the max, matching the app).

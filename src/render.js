@@ -1,3 +1,4 @@
+import { renderSemesterSwitcher } from './semesters.js';
 import {
   renderSubjectSwitcher, renderSubjectList, renderSubjectDetails
 } from './subjects.js';
@@ -13,6 +14,7 @@ import { renderReports } from './reports.js';
  * know which other views its change affects.
  */
 export function renderAll() {
+  renderSemesterSwitcher();
   renderSubjectSwitcher();
   renderSubjectList();
   renderSubjectDetails();

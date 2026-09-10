@@ -1,4 +1,7 @@
-import { state, getActiveSubject, subjectLabel, scheduleSave, TERMS, TERM_LABELS } from './state.js';
+import {
+  state, getActiveSubject, semesterOf, createSemester, semesterLabel,
+  subjectLabel, reconcileState, scheduleSave, TERMS, TERM_LABELS
+} from './state.js';
 import { requestRender } from './bus.js';
 import { showToast } from './utils.js';
 import { confirmAction } from './dialog.js';
@@ -33,7 +36,7 @@ export function initPortIO() {
     showToast('Building the Excel file…');
     try {
       const { buildClassRecordBlob } = await import('./xlsx.js');
-      const blob = await buildClassRecordBlob(subject);
+      const blob = await buildClassRecordBlob(subject, semesterOf(subject));
       const name = `${slug(subjectLabel(subject))}-class-record.xlsx`;
       downloadBlob(name, blob);
       showToast(`Exported ${name}`);
@@ -53,7 +56,7 @@ export function initPortIO() {
     showToast('Building the Word file…');
     try {
       const { buildGradeSheetBlob } = await import('./gradesheet.js');
-      const blob = await buildGradeSheetBlob(subject);
+      const blob = await buildGradeSheetBlob(subject, semesterOf(subject));
       const name = `${slug(subjectLabel(subject))}-grade-sheet.docx`;
       downloadBlob(name, blob);
       showToast(`Exported ${name}`);
@@ -134,6 +137,20 @@ async function importClassRecord(file) {
     return;
   }
 
+  const hint = draft.semesterHint || { label: '', schoolYear: '' };
+  delete draft.semesterHint;
+
+  // find or create the semester this record belongs to (blanks -> "Unsorted")
+  const sy = hint.schoolYear || 'Unsorted';
+  const lb = hint.label || 'Unsorted';
+  let sem = state.semesters.find(s => s.schoolYear === sy && s.label === lb);
+  const createdSem = !sem;
+  if (!sem) {
+    sem = createSemester({ schoolYear: sy, label: lb });
+    state.semesters.push(sem);
+  }
+  draft.semesterId = sem.id;
+
   const nStu = draft.students.length;
   const nAsg = TERMS.reduce((n, t) => n + draft.terms[t].assignments.length, 0);
   const nScore = Object.keys(draft.scores).length;
@@ -142,6 +159,7 @@ async function importClassRecord(file) {
     title: 'Import this class record?',
     messageLines: [
       `Creates a new subject: ${subjectLabel(draft)}`,
+      `Semester: ${semesterLabel(sem)}`,
       `• ${nStu} student${nStu === 1 ? '' : 's'}`,
       `• ${nAsg} assignment${nAsg === 1 ? '' : 's'} across the 3 terms`,
       `• ${nScore} score${nScore === 1 ? '' : 's'}`,
@@ -150,10 +168,15 @@ async function importClassRecord(file) {
     confirmLabel: 'Create subject',
     cancelLabel: 'Cancel'
   });
-  if (!ok) return;
+  if (!ok) {
+    if (createdSem) state.semesters = state.semesters.filter(s => s.id !== sem.id);
+    return;
+  }
 
   state.subjects.push(draft);
+  state.activeSemesterId = sem.id;
   state.activeSubjectId = draft.id;
+  reconcileState();
   scheduleSave('Class record imported');
   requestRender();
   showToast(`Imported ${subjectLabel(draft)} — ${nStu} students`);

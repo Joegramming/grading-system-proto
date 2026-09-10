@@ -4,6 +4,7 @@
  *
  *   confirmAction({...}) -> Promise<boolean>   (true = confirmed)
  *   promptText({...})    -> Promise<string|null>  (null = cancelled or blank)
+ *   formDialog({...})    -> Promise<Record<string,string>|null>  (a few fields)
  *
  * Message text is always escaped; callers pass plain strings, never markup.
  */
@@ -127,5 +128,63 @@ export function promptText(opts) {
 
     input.focus();
     input.select();
+  });
+}
+
+/**
+ * A few fields at once. `fields`: array of
+ *   { key, label, type?: 'text' | 'select', placeholder?, value?, options?: [{value,label}] }
+ * Resolves an object of trimmed values keyed by `key`, or null if cancelled.
+ */
+export function formDialog({ title, message = '', fields = [], confirmLabel = 'OK', cancelLabel = 'Cancel' }) {
+  return new Promise(resolve => {
+    const prevFocus = document.activeElement;
+
+    const rows = fields.map(f => {
+      if (f.type === 'select') {
+        const opts = (f.options || []).map(o =>
+          `<option value="${escapeHtml(o.value)}" ${o.value === (f.value || '') ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+        ).join('');
+        return `<label class="dialog-field"><span>${escapeHtml(f.label)}</span>
+          <select class="dialog-input" data-key="${escapeHtml(f.key)}">${opts}</select></label>`;
+      }
+      return `<label class="dialog-field"><span>${escapeHtml(f.label)}</span>
+        <input class="dialog-input" type="text" data-key="${escapeHtml(f.key)}"
+          placeholder="${escapeHtml(f.placeholder || '')}" value="${escapeHtml(f.value || '')}"></label>`;
+    }).join('');
+
+    const overlay = mount(`
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+        <h2 id="dlg-title">${escapeHtml(title)}</h2>
+        ${message ? `<div class="dialog-body"><p>${escapeHtml(message)}</p></div>` : ''}
+        <div class="dialog-form">${rows}</div>
+        <div class="dialog-actions">
+          <button class="btn-ghost" data-dlg="cancel">${escapeHtml(cancelLabel)}</button>
+          <button class="btn" data-dlg="ok">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>`);
+
+    const done = ok => {
+      let result = null;
+      if (ok) {
+        result = {};
+        overlay.querySelectorAll('[data-key]').forEach(el => { result[el.dataset.key] = el.value.trim(); });
+      }
+      overlay.remove();
+      if (prevFocus && prevFocus.focus) prevFocus.focus();
+      resolve(result);
+    };
+
+    overlay.querySelector('[data-dlg="ok"]').addEventListener('click', () => done(true));
+    overlay.querySelector('[data-dlg="cancel"]').addEventListener('click', () => done(false));
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) done(false); });
+    overlay.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Enter' && e.target.tagName !== 'SELECT') { e.preventDefault(); done(true); }
+      else if (e.key === 'Tab') trapTab(e, overlay);
+    });
+
+    const first = overlay.querySelector('.dialog-input');
+    if (first) { first.focus(); if (first.select) first.select(); }
   });
 }

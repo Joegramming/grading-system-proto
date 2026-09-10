@@ -70,13 +70,15 @@ a{color:inherit;}
 .add-section-btn:hover{opacity:.85;}
 .section-meta{font-size:12.5px;color:var(--ink-muted);margin-top:8px;padding:0 2px;}
 
-.subject-side{margin-top:12px;padding-top:12px;border-top:1px solid var(--sand);display:flex;flex-direction:column;gap:10px;}
-.subject-side label{display:flex;flex-direction:column;gap:4px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-muted);padding:0 2px;}
-.subject-side label input{
-  background:var(--panel-soft);border:1px solid var(--sand);color:var(--ink);border-radius:9px;
-  padding:8px 10px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;min-height:auto;outline:none;
+.side-select{width:100%;font-size:14px;font-weight:600;padding:9px 10px;border-radius:10px;background:var(--panel-soft);border:1px solid var(--sand);color:var(--ink);min-height:auto;}
+.semester-actions{display:flex;gap:6px;margin-top:6px;}
+.semester-actions button{
+  flex:1;background:var(--panel-soft);border:1px solid var(--sand);color:var(--ink-muted);
+  border-radius:9px;padding:7px 4px;font-size:12px;font-weight:600;
 }
-.subject-side label input:focus{border-color:var(--gold-2);}
+.semester-actions button:first-child{color:var(--ink);}
+.semester-actions button:hover:not(:disabled){border-color:var(--ink);color:var(--ink);}
+.semester-actions button:disabled{opacity:.4;cursor:default;}
 
 .nav-item{
   display:flex;align-items:center;gap:11px;padding:13px 12px;border-radius:12px;color:var(--ink);
@@ -257,6 +259,9 @@ select{background:var(--panel-soft);border:1px solid var(--sand);color:var(--ink
   border-radius:10px;padding:12px 13px;font-size:16px;outline:none;min-height:44px;
 }
 .dialog-input:focus{border-color:var(--gold-2);}
+.dialog-form{display:flex;flex-direction:column;gap:14px;margin-top:16px;}
+.dialog-field{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);}
+.dialog-field .dialog-input{margin-top:0;text-transform:none;letter-spacing:0;font-weight:400;}
 .dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
 .dialog-actions .btn, .dialog-actions .btn-ghost{min-height:auto;padding:10px 18px;}
 

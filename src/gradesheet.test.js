@@ -23,12 +23,13 @@ function zipEntry(buf, name) {
   return null;
 }
 
+const semester = () => ({ label: '2nd Sem', schoolYear: '2025-2026' });
+
 function subject() {
   return {
     id: 'sub1',
     course: {
-      code: 'ITP 120', name: 'Systems Analysis and Design', semester: '2nd Sem',
-      schoolYear: '2025-2026', schedule: '', set: '',
+      code: 'ITP 120', name: 'Systems Analysis and Design', schedule: '', set: '',
       courseYear: 'BSIT II-B', instructor: 'Helen S. Duriguez', programChair: 'Engr. Elias D. Edan Jr.'
     },
     students: [
@@ -49,7 +50,7 @@ function subject() {
 
 describe('buildGradeSheetBlob', () => {
   it('produces a non-empty .docx (zip) blob', async () => {
-    const blob = await buildGradeSheetBlob(subject());
+    const blob = await buildGradeSheetBlob(subject(), semester());
     const bytes = new Uint8Array(await blob.arrayBuffer());
     expect(bytes.length).toBeGreaterThan(2000);
     // .docx is a zip -> starts with "PK\x03\x04"
@@ -57,7 +58,7 @@ describe('buildGradeSheetBlob', () => {
   });
 
   it('has a header with the letterhead + logo, and a body with the table', async () => {
-    const blob = await buildGradeSheetBlob(subject());
+    const blob = await buildGradeSheetBlob(subject(), semester());
     const buf = Buffer.from(await blob.arrayBuffer());
     const names = buf.toString('latin1');
 
@@ -69,6 +70,8 @@ describe('buildGradeSheetBlob', () => {
     expect(body).toContain('Nothing Follows');
     expect(body).toContain('Course Code: ITP 120');
     expect(body).toContain('Course and Year: BSIT II-B');
+    expect(body).toContain('Semester: 2nd Sem');
+    expect(body).toContain('School Year: 2025-2026');
     // students sorted by name -> ABAD before ZAMORA, seq 1 / 2
     expect(body.indexOf('ABAD, MARIA')).toBeLessThan(body.indexOf('ZAMORA, RICO'));
     // s1 scored 80 in all three terms -> final 80 -> Passed; s2 -> Incomplete

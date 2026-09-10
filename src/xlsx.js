@@ -23,10 +23,16 @@ import ExcelJS from 'exceljs/dist/exceljs.min.js';
 import { TERMS, TERM_LABELS } from './state.js';
 import { uid } from './utils.js';
 
-const COURSE_LINES = [
-  'code', 'name', 'semester', 'schoolYear', 'schedule', 'set',
-  'courseYear', 'instructor', 'programChair'
-];
+// A1..A9, in order. semester label / school year come from the subject's
+// semester (rows 3-4); the rest from subject.course.
+function courseBlockValues(subject, semester) {
+  const c = subject.course;
+  const sem = semester || {};
+  return [
+    c.code, c.name, sem.label || '', sem.schoolYear || '',
+    c.schedule, c.set, c.courseYear, c.instructor, c.programChair
+  ];
+}
 
 const R_PERIOD = 11;
 const R_CATEGORY = 12;
@@ -53,7 +59,7 @@ function colNum(s) {
 
 /* ------------------------------------------------------------------ export */
 
-export async function buildClassRecordBlob(subject) {
+export async function buildClassRecordBlob(subject, semester) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Gradebook';
   wb.calcProperties.fullCalcOnLoad = true;
@@ -62,9 +68,9 @@ export async function buildClassRecordBlob(subject) {
     views: [{ state: 'frozen', xSplit: 1, ySplit: R_MAXWT }]
   });
 
-  COURSE_LINES.forEach((key, i) => {
+  courseBlockValues(subject, semester).forEach((v, i) => {
     const cell = ws.getCell(i + 1, 1);
-    cell.value = subject.course[key] || '';
+    cell.value = v || '';
     cell.font = { bold: i < 2 };
   });
 
@@ -234,14 +240,22 @@ export async function parseClassRecord(arrayBuffer) {
   const ws = wb.getWorksheet('Class Record') || wb.worksheets[0];
   if (!ws) throw new Error('The file has no worksheet.');
 
-  const course = {};
-  COURSE_LINES.forEach((key, i) => { course[key] = cellText(ws, i + 1, 1); });
+  const course = {
+    code: cellText(ws, 1, 1),
+    name: cellText(ws, 2, 1),
+    schedule: cellText(ws, 5, 1),
+    set: cellText(ws, 6, 1),
+    courseYear: cellText(ws, 7, 1),
+    instructor: cellText(ws, 8, 1),
+    programChair: cellText(ws, 9, 1)
+  };
+  const semesterHint = { label: cellText(ws, 3, 1), schoolYear: cellText(ws, 4, 1) };
 
   const students = [];
   for (let r = R_STU; r < R_STU + 5000; r++) {
     const name = cellText(ws, r, 1);
     if (!name) break;
-    students.push({ id: uid(), name });
+    students.push({ id: uid(), name, sex: '' });
   }
 
   const merges = parseMerges(ws);
@@ -306,5 +320,5 @@ export async function parseClassRecord(arrayBuffer) {
     throw new Error("This doesn't look like a Gradebook class record.");
   }
 
-  return { id: uid(), course, students, terms, scores };
+  return { id: uid(), semesterHint, course, students, terms, scores };
 }
