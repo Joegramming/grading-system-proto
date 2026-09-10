@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-DdRjR5vv.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DWWpBhmv.css">
+  <script type="module" crossorigin src="./assets/index-UzNxahFh.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-zOcU1kM6.css">
 </head>
 <body>
 <div class="shell">
@@ -23,21 +23,28 @@
     </div>
 
     <div class="section-switch">
-      <div class="nav-label" style="padding-left:0;">Subject</div>
+      <div class="nav-label" style="padding-left:0;">School Year</div>
+      <select id="schoolYearSelect" class="side-select"></select>
+      <div class="semester-actions">
+        <button id="addSchoolYearBtn">＋ Add</button>
+        <button id="editSchoolYearBtn" title="Rename school year">✎</button>
+        <button id="delSchoolYearBtn" title="Delete school year">🗑</button>
+      </div>
+
+      <div class="nav-label" style="padding-left:0;margin-top:10px;">Semester</div>
+      <select id="semesterSelect" class="side-select"></select>
+      <div class="semester-actions">
+        <button id="addSemesterBtn">＋ Add</button>
+        <button id="editSemesterBtn" title="Rename semester">✎</button>
+        <button id="delSemesterBtn" title="Delete semester">🗑</button>
+      </div>
+
+      <div class="nav-label" style="padding-left:0;margin-top:14px;">Subject</div>
       <div class="section-select-row">
         <select id="subjectSelect"></select>
       </div>
       <button class="add-section-btn" id="addSubjectBtn">＋ Add subject</button>
       <div class="section-meta" id="subjectMeta">0 students</div>
-
-      <div class="subject-side">
-        <label>Semester
-          <input type="text" id="courseSemester" placeholder="e.g. SECOND SEMESTER">
-        </label>
-        <label>School Year
-          <input type="text" id="courseSchoolYear" placeholder="e.g. SY 2025-2026">
-        </label>
-      </div>
     </div>
 
     <div class="nav-label">Pages</div>
